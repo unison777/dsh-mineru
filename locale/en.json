@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "MinerU",
+    "description": "Parse PDFs, images, and Office files into Markdown through mineru-mcp, with a bundled mineru skill and a settings page for the API key and versions."
+  }
+}

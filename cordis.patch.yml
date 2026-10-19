@@ -1,0 +1,28 @@
+# MinerU bundle rows.
+#
+# `mcp-mineru` reuses the id the profile patch already overrides, so the two
+# layers describe ONE row: this file is the portable default (no secret, no
+# machine paths), and the user's `cordis.patch.yml` override supplies the real
+# MINERU_API_KEY and the local Node / mineru-mcp paths.
+# Keeping the same id also prevents a duplicate `serverName: mineru`, which the
+# MCP client rejects inside one registration scope.
+- insert:
+    - id: mcp-mineru
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: mineru
+        transport: stdio
+        # Portable defaults: set MINERU_NODE / MINERU_MCP_ENTRY, or override this
+        # row in the profile patch with this machine's concrete paths.
+        command: !!js "process.env.MINERU_NODE ?? 'node'"
+        args:
+          - !!js "process.env.MINERU_MCP_ENTRY ?? ''"
+        env:
+          # `!!js` is evaluated by the Loader; only globals are in scope, so the
+          # secret never lives in this package. Set MINERU_API_KEY in the
+          # environment, or override this row in the profile patch layer.
+          MINERU_API_KEY: !!js "process.env.MINERU_API_KEY ?? ''"
+        toolCallTimeoutMs: 180000
+        failOnStartupError: false
+    - id: mineru
+      name: '@local/dsh-mineru'

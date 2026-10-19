@@ -1,0 +1,36 @@
+{
+  "name": "@local/dsh-mineru",
+  "version": "0.2.0",
+  "private": true,
+  "description": "MinerU 文档解析：把 mineru-mcp 接入 DeepSeek Harness，附带 mineru skill 与只含 API Key、版本信息的设置页。",
+  "icon": "./icon.svg",
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "icon.svg",
+    "locale/*.json",
+    "cordis.patch.yml",
+    "skill/SKILL.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-settings"
+      ]
+    }
+  }
+}

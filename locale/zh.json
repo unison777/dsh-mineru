@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "MinerU 文档解析",
+    "description": "通过 mineru-mcp 把 PDF、图片和 Office 文档解析成 Markdown，附带 mineru skill；设置页填写 API Key 并查看版本信息。"
+  }
+}
