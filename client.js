@@ -1,9 +1,10 @@
 /**
  * Browser half of the MinerU bundle.
  *
- * Registers one `settings.section` page with the only two things a user needs:
- * a masked API-key field (written by the Host into the `mcp-mineru` row) and
- * the version facts of the plugin, the MCP server, and the connection.
+ * Registers one `settings.section` page with what a user needs: the detected
+ * runtime (with a one-click repair), a masked API-key field written by the Host
+ * into the `mcp-mineru` row, and the version facts of the plugin, the MCP
+ * server, and the connection.
  *
  * The page talks to the Host through the authenticated `/api` bridge only;
  * the stored key itself never reaches the page.
@@ -45,7 +46,8 @@ window.__ModuleLoader__.load({
       '.dshMinu_badge{display:inline-flex;align-items:center;padding:0 6px;border:.5px solid currentColor;border-radius:999px;font-size:12px;line-height:16px;}',
       '.dshMinu_ok{color:var(--dsw-alias-state-success-primary);}',
       '.dshMinu_off{color:var(--dsw-alias-state-warn-primary);}',
-      '.dshMinu_link{margin-top:8px;display:inline-block;font-size:12px;line-height:18px;color:var(--dsw-alias-brand-primary);text-decoration:none;}',
+      '.dshMinu_links{margin-top:8px;display:flex;flex-wrap:wrap;gap:16px;font-size:12px;line-height:18px;}',
+      '.dshMinu_link{color:var(--dsw-alias-brand-primary);text-decoration:none;}',
       '.dshMinu_link:hover{text-decoration:underline;}',
     ].join('')
 
@@ -78,7 +80,25 @@ window.__ModuleLoader__.load({
           disconnected: '未连接',
           loading: '读取中…',
         },
-        link: '在 mineru.net 获取 API Key',
+        env: {
+          title: '运行环境',
+          desc: '插件会自动探测 Node 与 mineru-mcp；正常安装后不需要手动填路径。',
+          ready: '已就绪',
+          missing: '未就绪',
+          readyText: 'Node 和 mineru-mcp 都已找到，MCP 连接会自动建立。',
+          noNode: '没有找到可用的 Node 运行时。请安装 Node，或设置 MINERU_NODE 后重试。',
+          noEntry: '没有找到 mineru-mcp。它应随插件自动安装；也可以设置 MINERU_MCP_ENTRY 指向 dist/index.js。',
+          notApplied: '已找到运行环境，点「一键配置」写入 MCP 配置。',
+          invalidConfig: '当前 MCP 配置里的路径不可用，点「一键配置」修复。',
+          configure: '一键配置',
+          configuring: '配置中…',
+          configured: '运行环境已写入，MCP 会自动重连。',
+        },
+        links: {
+          official: 'MinerU 官网',
+          apiKey: '获取 API Key',
+          docs: '使用文档',
+        },
         saved: '已保存，MCP 连接已使用新密钥。',
         cleared: '已清除密钥。',
         errors: {
@@ -88,6 +108,7 @@ window.__ModuleLoader__.load({
           noEditor: '当前 profile 未加载 config-editor，无法写入配置。',
           noEntry: '找不到 mcp-mineru 配置行，请确认插件仍启用。',
           saveFailed: '写入配置失败：',
+          configureFailed: '运行环境写入失败：',
           statusFailed: '读取插件状态失败。',
           generic: '操作失败，请稍后重试。',
         },
@@ -120,7 +141,25 @@ window.__ModuleLoader__.load({
           disconnected: 'Disconnected',
           loading: 'Loading…',
         },
-        link: 'Get an API key at mineru.net',
+        env: {
+          title: 'Runtime',
+          desc: 'The plugin detects Node and mineru-mcp automatically; a normal install needs no manual paths.',
+          ready: 'Ready',
+          missing: 'Not ready',
+          readyText: 'Node and mineru-mcp were found; the MCP connection starts automatically.',
+          noNode: 'No usable Node runtime was found. Install Node, or set MINERU_NODE and retry.',
+          noEntry: 'mineru-mcp was not found. It should install with the plugin; alternatively set MINERU_MCP_ENTRY to dist/index.js.',
+          notApplied: 'A runtime was found. Click “Configure” to write it into the MCP row.',
+          invalidConfig: 'The current MCP paths are unusable. Click “Configure” to repair them.',
+          configure: 'Configure',
+          configuring: 'Configuring…',
+          configured: 'Runtime written; the MCP connection reconnects automatically.',
+        },
+        links: {
+          official: 'MinerU website',
+          apiKey: 'Get an API key',
+          docs: 'Documentation',
+        },
         saved: 'Saved. The MCP connection now uses the new key.',
         cleared: 'Key cleared.',
         errors: {
@@ -130,6 +169,7 @@ window.__ModuleLoader__.load({
           noEditor: 'This profile has no config-editor, so configuration cannot be written.',
           noEntry: 'The mcp-mineru row is missing; check the plugin is still enabled.',
           saveFailed: 'Writing configuration failed: ',
+          configureFailed: 'Writing the runtime failed: ',
           statusFailed: 'Reading plugin status failed.',
           generic: 'The operation failed. Try again.',
         },
@@ -211,6 +251,7 @@ window.__ModuleLoader__.load({
       if (payload === null || typeof payload !== 'object' || payload.ok !== true) {
         const error = new Error(payload?.error?.message ?? 'request failed')
         error.code = payload?.error?.code ?? 'mineru/failed'
+        error.details = payload?.error?.details
         throw error
       }
       return payload.value
@@ -231,6 +272,15 @@ window.__ModuleLoader__.load({
       if (code === 'mineru/invalid-key') return errors.invalidKey
       if (code === 'mineru/config-editor-missing') return errors.noEditor
       if (code === 'mineru/mcp-entry-missing') return errors.noEntry
+      if (code === 'mineru/environment-not-ready') {
+        const reason = error !== null && typeof error === 'object' ? error.details?.reason : undefined
+        if (reason === 'no-node') return text.env.noNode
+        if (reason === 'no-entry') return text.env.noEntry
+        return text.env.notApplied
+      }
+      if (code === 'mineru/configure-failed') {
+        return `${errors.configureFailed}${error instanceof Error ? error.message : String(error)}`
+      }
       if (code === 'mineru/status-failed') return errors.statusFailed
       if (code === 'mineru/save-failed') {
         return `${errors.saveFailed}${error instanceof Error ? error.message : String(error)}`
@@ -368,6 +418,13 @@ window.__ModuleLoader__.load({
           }
         }
 
+        const configure = async () => {
+          if (await run('configure')) {
+            setNotice(text.env.configured)
+            setRefreshTick((value) => value + 1)
+          }
+        }
+
         React.useEffect(() => {
           if (refreshTick === 0) return undefined
           const timer = setTimeout(() => {
@@ -388,6 +445,21 @@ window.__ModuleLoader__.load({
         const connection = status === null
           ? text.version.loading
           : status.connected ? text.version.connected : text.version.disconnected
+        const environment = status === null ? null : status.environment ?? null
+        const environmentReady = environment !== null && environment.ready === true
+        const environmentMessage = status === null
+          ? ''
+          : environment === null
+            ? text.version.loading
+            : environmentReady
+              ? text.env.readyText
+              : environment.reason === 'no-node'
+                ? text.env.noNode
+                : environment.reason === 'no-entry'
+                  ? text.env.noEntry
+                  : environment.reason === 'invalid-config'
+                    ? text.env.invalidConfig
+                    : text.env.notApplied
 
         return h(
           'div',
@@ -397,6 +469,33 @@ window.__ModuleLoader__.load({
             { className: 'dshMinu_lead' },
             h('div', { className: 'dshMinu_leadTitle' }, text.leadTitle),
             h('div', { className: 'dshMinu_leadText' }, text.leadText),
+          ),
+          h(
+            Row,
+            {
+              title: text.env.title,
+              side: h(
+                'span',
+                { className: `dshMinu_badge ${environmentReady ? 'dshMinu_ok' : 'dshMinu_off'}` },
+                status === null ? text.version.loading : environmentReady ? text.env.ready : text.env.missing,
+              ),
+            },
+            Desc(text.env.desc),
+            status === null
+              ? null
+              : h('div', { className: environmentReady ? 'dshMinu_desc' : 'dshMinu_error' }, environmentMessage),
+            status !== null && !environmentReady && status.canConfigure === true
+              ? h(
+                  'button',
+                  {
+                    type: 'button',
+                    className: 'dshMinu_btn',
+                    disabled: busy,
+                    onClick: configure,
+                  },
+                  busy ? text.env.configuring : text.env.configure,
+                )
+              : null,
           ),
           h(
             Row,
@@ -443,11 +542,6 @@ window.__ModuleLoader__.load({
             status !== null && status.canEdit !== true ? h('div', { className: 'dshMinu_error' }, text.key.noEditor) : null,
             notice === '' ? null : h('div', { className: 'dshMinu_notice' }, notice),
             error === '' ? null : h('div', { className: 'dshMinu_error' }, error),
-            h(
-              'a',
-              { className: 'dshMinu_link', href: 'https://mineru.net', target: '_blank', rel: 'noopener noreferrer' },
-              text.link,
-            ),
           ),
           h(
             Row,
@@ -479,6 +573,13 @@ window.__ModuleLoader__.load({
                 valueClass: status === null ? '' : status.connected ? 'dshMinu_ok' : 'dshMinu_off',
               }),
             ),
+          ),
+          h(
+            'div',
+            { className: 'dshMinu_links' },
+            h('a', { className: 'dshMinu_link', href: 'https://mineru.net', target: '_blank', rel: 'noopener noreferrer' }, text.links.official),
+            h('a', { className: 'dshMinu_link', href: 'https://mineru.net', target: '_blank', rel: 'noopener noreferrer' }, text.links.apiKey),
+            h('a', { className: 'dshMinu_link', href: 'https://opendatalab.github.io/MinerU/zh/', target: '_blank', rel: 'noopener noreferrer' }, text.links.docs),
           ),
         )
       }

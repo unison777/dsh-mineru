@@ -5,19 +5,21 @@
  * - the embedded `mineru` skill, so any session can load the MinerU workflow on
  *   demand without a copy under `$DSH_HOME/skills`;
  * - one authenticated JSON endpoint under `/api/mineru/state`, which the
- *   settings page uses to read version facts and to save the API key into the
- *   `mcp-mineru` row's `env.MINERU_API_KEY`.
+ *   settings page uses to read version facts, save the API key into the
+ *   `mcp-mineru` row's `env.MINERU_API_KEY`, and apply the Node / mineru-mcp
+ *   paths detected on this machine.
  *
  * Writing through `ctx.configEditor.edit` keeps one source of truth: the
  * profile patch is updated, the Loader reconciles the row, and `dsh-mcp-client`
- * reconnects in place with the new key. The full key never leaves the Host;
- * clients only receive a masked hint.
+ * reconnects in place. The full key never leaves the Host; clients only receive
+ * a masked hint.
  *
  * @module @local/dsh-mineru
  */
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { isPortable, resolveEnvironment } from './environment.js'
 
 /** Loader entry id the bundle inserts for the MCP connection. */
 const MCP_ENTRY_ID = 'mcp-mineru'
@@ -94,8 +96,10 @@ function jsonResponse(payload, status = 200) {
  * @param message - operator-facing detail.
  * @returns the Fetch response.
  */
-function failure(code, message) {
-  return jsonResponse({ ok: false, error: { code, message } })
+function failure(code, message, details) {
+  const error = { code, message }
+  if (details !== undefined) error.details = details
+  return jsonResponse({ ok: false, error })
 }
 
 /**
@@ -181,13 +185,21 @@ function readStatus(ctx) {
   } catch {
     connected = false
   }
+  const environment = resolveEnvironment(config)
+  const editor = ctx.get('configEditor')
   return {
     pluginVersion: PACKAGE_VERSION,
     mcpVersion: mcpVersion(config),
     connected,
     keyConfigured: key !== '',
     maskedKey: maskKey(key),
-    canEdit: ctx.get('configEditor') !== undefined,
+    environment,
+    canConfigure:
+      environment.ready !== true &&
+      editor !== undefined &&
+      entry !== undefined &&
+      environment.detectedReady === true,
+    canEdit: editor !== undefined,
     entryAvailable: entry !== undefined,
   }
 }
@@ -241,6 +253,78 @@ async function saveKey(ctx, rawKey) {
 }
 
 /**
+ * Write the detected Node / mineru-mcp pair into the `mcp-mineru` row.
+ *
+ * @param ctx - Host plugin context.
+ * @returns the refreshed status, or a failure response.
+ */
+async function configureEnvironment(ctx) {
+  const editor = ctx.get('configEditor')
+  if (editor === undefined || editor === null) {
+    return failure('mineru/config-editor-missing', 'config-editor is not mounted in this profile')
+  }
+  const entry = mcpEntry(ctx)
+  if (entry === undefined) {
+    return failure('mineru/mcp-entry-missing', `Loader entry ${MCP_ENTRY_ID} is unavailable`)
+  }
+  const environment = resolveEnvironment(configOf(entry))
+  if (environment.ready === true) return readStatus(ctx)
+  if (environment.detectedReady !== true) {
+    return failure(
+      'mineru/environment-not-ready',
+      `runtime not detected: ${environment.reason ?? 'unknown'}`,
+      { reason: environment.reason ?? 'unknown' },
+    )
+  }
+  try {
+    await editor.edit(entry, (current) => {
+      const base = current !== null && typeof current === 'object' && !Array.isArray(current) ? current : {}
+      const args = Array.isArray(base.args) ? [...base.args] : []
+      if (args.length === 0) args.push('')
+      args[0] = environment.entry
+      return { ...base, command: environment.node, args }
+    })
+  } catch (error) {
+    return failure('mineru/configure-failed', error instanceof Error ? error.message : String(error))
+  }
+  return readStatus(ctx)
+}
+
+/**
+ * Fill the portable defaults once, when this machine offers a runtime.
+ *
+ * Deferred out of activation so the Loader is settled; a failure is logged and
+ * leaves the one-click path in the settings page available.
+ *
+ * @param ctx - Host plugin context.
+ */
+async function autoConfigure(ctx) {
+  try {
+    const editor = ctx.get('configEditor')
+    if (editor === undefined || editor === null) return
+    const entry = mcpEntry(ctx)
+    if (entry === undefined) return
+    const config = configOf(entry)
+    if (!isPortable(config)) return
+    const environment = resolveEnvironment(config)
+    if (environment.detectedReady !== true) {
+      ctx.logger?.warn?.(`mineru: runtime not detected (${environment.reason ?? 'unknown'})`)
+      return
+    }
+    await editor.edit(entry, (current) => {
+      const base = current !== null && typeof current === 'object' && !Array.isArray(current) ? current : {}
+      const args = Array.isArray(base.args) ? [...base.args] : []
+      if (args.length === 0) args.push('')
+      args[0] = environment.entry
+      return { ...base, command: environment.node, args }
+    })
+    ctx.logger?.info?.(`mineru: configured MCP runtime from ${environment.nodeSource}/${environment.entrySource}`)
+  } catch (error) {
+    ctx.logger?.warn?.(`mineru: automatic runtime configuration failed (${String(error)})`)
+  }
+}
+
+/**
  * Dispatch one settings request.
  *
  * @param ctx - Host plugin context.
@@ -267,6 +351,10 @@ async function handleState(ctx, request) {
         return failure('mineru/invalid-key', 'apiKey must be a string')
       }
       const result = await saveKey(ctx, body.apiKey)
+      return result instanceof Response ? result : jsonResponse({ ok: true, value: result })
+    }
+    if (body.action === 'configure') {
+      const result = await configureEnvironment(ctx)
       return result instanceof Response ? result : jsonResponse({ ok: true, value: result })
     }
     return failure('mineru/unknown-action', `Unknown action ${String(body.action)}`)
@@ -317,4 +405,17 @@ export function apply(ctx) {
       'mineru: settings endpoint',
     )
   })
+
+  ctx.effect(() => {
+    const first = setTimeout(() => {
+      void autoConfigure(ctx)
+    }, 0)
+    const second = setTimeout(() => {
+      void autoConfigure(ctx)
+    }, 1500)
+    return () => {
+      clearTimeout(first)
+      clearTimeout(second)
+    }
+  }, 'mineru: runtime detection')
 }
