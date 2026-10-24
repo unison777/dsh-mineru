@@ -51,11 +51,20 @@ plugin_manager { action: "install_bundle", target: "<本地仓库绝对路径>" 
 （例如在插件页把本插件关掉再打开）即可热替换；Browser 半由 client-modules 按文件
 签名自动刷新，必要时刷新页面。
 
+> **装不上时先看网络**：`install_bundle` 在跑 pnpm 之前会先做一次 `git ls-remote`
+> 探测仓库（默认 5 秒超时）。如果本机把 `github.com` 指到了 `127.0.0.1`
+> （例如 Steam++ 之类加速工具的 hosts 段），这一步会一直挂住或报
+> `failedAt: "spec-host"`。先放行 GitHub，或改用下面的 tarball 安装——tarball
+> 不访问 GitHub。
+
 装完确认：
 
 1. `cordis_inspect_query` → `Config.listConfigs` / `Tool.listTools` 里出现 `mcp__mineru__*`；
 2. `Slots.listSubTree` 的 `settings.section` 占用者里出现 `mineru`；
 3. 设置页的「运行环境」为已就绪。
+
+如果前两项都正常但「运行环境」显示未就绪、原因为 `no-entry`，说明插件没能定位
+`mineru-mcp`：在设置页点 **一键配置** 即可，或手动设 `MINERU_MCP_ENTRY`。
 
 ## 结构
 
