@@ -44,11 +44,6 @@ github:unison777/dsh-mineru
 如果前两项都正常但「运行环境」显示未就绪、原因为 `no-entry`，说明插件没能定位
 `mineru-mcp`：在设置页点 **一键配置** 即可，或手动设 `MINERU_MCP_ENTRY`。
 
-> **装不上时先看网络**：`install_bundle` 在跑 pnpm 之前会先做一次 `git ls-remote`
-> 探测仓库（默认 5 秒超时）。如果本机把 `github.com` 指到了 `127.0.0.1`
-> （例如 Steam++ 之类加速工具的 hosts 段），这一步会一直挂住或报
-> `failedAt: "spec-host"`。先放行 GitHub 再装。
-
 ## 结构
 
 | 文件 | 作用 |
