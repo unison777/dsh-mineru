@@ -10,11 +10,11 @@
  * the stored key itself never reaches the page.
  */
 window.__ModuleLoader__.load({
-  id: '@local/dsh-mineru',
+  id: '@unison777/dsh-mineru',
   factory(require) {
     const React = require('react')
     const h = React.createElement
-    const STYLE_ID = '@local/dsh-mineru/settings.css'
+    const STYLE_ID = '@unison777/dsh-mineru/settings.css'
     const ENDPOINT = 'api/mineru/state'
 
     const CSS = [
@@ -213,7 +213,7 @@ window.__ModuleLoader__.load({
       if (typeof document === 'undefined') return () => {}
       if (document.querySelector(`style[data-plugin-css="${STYLE_ID}"]`) !== null) return () => {}
       const tag = document.createElement('style')
-      tag.dataset.plugin = '@local/dsh-mineru'
+      tag.dataset.plugin = '@unison777/dsh-mineru'
       tag.dataset.pluginCss = STYLE_ID
       tag.textContent = CSS
       document.head.appendChild(tag)

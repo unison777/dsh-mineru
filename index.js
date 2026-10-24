@@ -14,7 +14,7 @@
  * reconnects in place. The full key never leaves the Host; clients only receive
  * a masked hint.
  *
- * @module @local/dsh-mineru
+ * @module @unison777/dsh-mineru
  */
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -386,7 +386,7 @@ export function apply(ctx) {
       name: 'mineru',
       description: document.description,
       content: document.content,
-      source: '@local/dsh-mineru',
+      source: '@unison777/dsh-mineru',
     }
     ctx.effect(() => ctx.skills.register(skill), 'mineru: embedded skill')
   } else if (document !== undefined) {

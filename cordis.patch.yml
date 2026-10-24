@@ -25,4 +25,4 @@
         toolCallTimeoutMs: 180000
         failOnStartupError: false
     - id: mineru
-      name: '@local/dsh-mineru'
+      name: '@unison777/dsh-mineru'

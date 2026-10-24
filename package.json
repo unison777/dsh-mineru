@@ -1,7 +1,6 @@
 {
-  "name": "@local/dsh-mineru",
-  "version": "0.3.0",
-  "private": true,
+  "name": "@unison777/dsh-mineru",
+  "version": "0.3.1",
   "description": "MinerU 文档解析：自动探测 Node 与 mineru-mcp，设置页只需填 API Key。",
   "icon": "./icon.svg",
   "type": "module",
@@ -21,10 +20,36 @@
     "cordis.patch.yml",
     "skill/SKILL.md"
   ],
+  "keywords": [
+    "dsh-plugin",
+    "dsh-bundle",
+    "deepseek-harness",
+    "mineru",
+    "pdf",
+    "ocr",
+    "markdown",
+    "mcp"
+  ],
+  "license": "MIT",
+  "author": {
+    "name": "unison777"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/unison777/dsh-mineru.git"
+  },
+  "homepage": "https://github.com/unison777/dsh-mineru#readme",
+  "bugs": {
+    "url": "https://github.com/unison777/dsh-mineru/issues"
+  },
+  "engines": {
+    "node": ">=24"
+  },
   "dependencies": {
     "mineru-mcp": "^1.2.0"
   },
   "dsh": {
+    "manifestVersion": 1,
     "bundle": {
       "patch": "./cordis.patch.yml"
     },

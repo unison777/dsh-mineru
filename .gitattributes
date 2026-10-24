@@ -1,0 +1,4 @@
+# Keep the published artifact byte-identical across platforms.
+* text=auto eol=lf
+*.png binary
+*.tgz binary

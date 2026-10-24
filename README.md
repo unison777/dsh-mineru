@@ -1,4 +1,4 @@
-# @local/dsh-mineru
+# @unison777/dsh-mineru
 
 MinerU 文档解析插件（DeepSeek Harness bundle）。把 `mineru-mcp` 通过
 `@deepseek-ai/dsh-mcp-client` 接进 DSH，并补上配置层做不到的东西：
@@ -13,6 +13,8 @@ MinerU 文档解析插件（DeepSeek Harness bundle）。把 `mineru-mcp` 通过
 
 模型看到的工具是 `mcp__mineru__*` 共 8 个，名称与参数完全由 MCP 服务器决定。
 
+> **隐私提示**：MinerU 是云端解析，文件会上传到 mineru.net。涉密材料请勿使用。
+
 ## 首次使用
 
 1. 安装 bundle（见下）；
@@ -22,6 +24,38 @@ MinerU 文档解析插件（DeepSeek Harness bundle）。把 `mineru-mcp` 通过
 4. 回到对话，让模型解析 PDF / 扫描件 / Office 文档。
 
 正常情况下，安装完成后用户只需要第 3 步；运行环境由插件自动处理。
+
+## 安装
+
+在本仓库的 Releases 页面下载 `dsh-mineru-0.3.1.tgz` 后，在 DSH 插件页选择
+**从文件安装**，或把 tarball 的绝对路径交给 `plugin_manager`：
+
+```
+plugin_manager { action: "install_bundle", target: "C:\\path\\to\\dsh-mineru-0.3.1.tgz" }
+```
+
+也可以直接从 GitHub 安装（跟踪 `main` 分支，或锁定某个 tag）：
+
+```
+plugin_manager { action: "install_bundle", target: "github:unison777/dsh-mineru" }
+plugin_manager { action: "install_bundle", target: "github:unison777/dsh-mineru#v0.3.1" }
+```
+
+开发时可以直接指向本地仓库目录（软链接安装，改完即生效）：
+
+```
+plugin_manager { action: "install_bundle", target: "<本地仓库绝对路径>" }
+```
+
+本地目录安装是软链接（junction）。改完 Host 代码后，触发一次 profile 重组合
+（例如在插件页把本插件关掉再打开）即可热替换；Browser 半由 client-modules 按文件
+签名自动刷新，必要时刷新页面。
+
+装完确认：
+
+1. `cordis_inspect_query` → `Config.listConfigs` / `Tool.listTools` 里出现 `mcp__mineru__*`；
+2. `Slots.listSubTree` 的 `settings.section` 占用者里出现 `mineru`；
+3. 设置页的「运行环境」为已就绪。
 
 ## 结构
 
@@ -50,33 +84,9 @@ MinerU 文档解析插件（DeepSeek Harness bundle）。把 `mineru-mcp` 通过
 
 设置页在 `connection` 服务就绪时注册接口；`config-editor` 缺失时只读并提示。
 
-## 安装
-
-从 GitHub 安装（把 `<owner>` 换成仓库所属账号）：
-
-```
-plugin_manager { action: "install_bundle", target: "github:<owner>/dsh-mineru" }
-```
-
-开发时也可以直接指向本地仓库目录：
-
-```
-plugin_manager { action: "install_bundle", target: "<本地仓库绝对路径>" }
-```
-
-本地目录安装是软链接（junction）。改完 Host 代码后，触发一次 profile 重组合
-（例如在插件页把本插件关掉再打开）即可热替换；Browser 半由 client-modules 按文件
-签名自动刷新，必要时刷新页面。
-
-装完确认：
-
-1. `cordis_inspect_query` → `Config.listConfigs` / `Tool.listTools` 里出现 `mcp__mineru__*`；
-2. `Slots.listSubTree` 的 `settings.section` 占用者里出现 `mineru`；
-3. 设置页的「运行环境」为已就绪。
-
 ## 运行环境与依赖
 
-- `mineru-mcp` 声明在 `dependencies`，从 GitHub 安装时由 pnpm 自动装好（含依赖约 19 MB，
+- `mineru-mcp` 声明在 `dependencies`，安装时由 pnpm 自动装好（含依赖约 19 MB，
   无原生编译）。本地 `link:` 安装不会自动装它的依赖，此时请用下面的环境变量或
   profile 覆盖行指向已有的 `mineru-mcp`。
 - Host 半按以下顺序探测 Node，并用 `--version` 实测：
@@ -99,3 +109,14 @@ plugin_manager { action: "install_bundle", target: "<本地仓库绝对路径>" 
 | `MINERU_API_KEY` | 空 | MinerU API Key（也可在设置页填写） |
 
 升级 `mineru-mcp` 后路径不变；换目录时删掉 profile 里的覆盖行，让插件重新探测即可。
+
+## 兼容性
+
+- 目标运行时：DSH `0.2.x`（`0.2.1-rc.3` 上验证）；`engines.node` 为 `>=24`。
+- 不声明 `peerDependencies`：DSH 安装时会逐个校验 `@deepseek-ai/dsh-*` 的 peer 范围，
+  写死后小版本升级就会被判为不兼容；本插件只依赖公开的 Host 服务
+  （`skills` / `connection` / `configEditor` / `tools`），不绑定具体版本。
+
+## 许可
+
+MIT

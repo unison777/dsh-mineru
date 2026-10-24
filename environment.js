@@ -13,16 +13,48 @@
  *
  * The caller decides whether to write the resolved pair into the profile row.
  *
- * @module @local/dsh-mineru/environment
+ * @module @unison777/dsh-mineru/environment
  */
 import { spawnSync } from 'node:child_process'
-import { existsSync, readdirSync } from 'node:fs'
+import { existsSync, readdirSync, realpathSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { homedir } from 'node:os'
-import { basename, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+/**
+ * Chain of specifiers to resolve this bundle's own dependencies from.
+ *
+ * pnpm installs a package under `node_modules/.pnpm/<id>/node_modules/<name>`
+ * and exposes it through a junction at `node_modules/<name>`. Node's ESM loader
+ * keeps that junction path in `import.meta.url`, and `require.resolve` walking
+ * up from it looks at `<profile>/node_modules` — where the dependency is not.
+ * Resolving from the real path reaches `.pnpm/<id>/node_modules`, where it is.
+ * Both are tried so the module also works from a plain `link:` checkout.
+ */
+function dependencyResolvers() {
+  const resolvers = []
+  const seen = new Set()
+  const add = (url) => {
+    if (url === undefined || seen.has(url)) return
+    seen.add(url)
+    try {
+      resolvers.push(createRequire(url))
+    } catch {
+      // A URL Node cannot turn into a require target adds nothing.
+    }
+  }
+  add(import.meta.url)
+  try {
+    add(new URL(`file://${realpathSync.native(fileURLToPath(import.meta.url)).replace(/\\/g, '/')}`).href)
+  } catch {
+    // Non-Windows hosts and unusual layouts fall back to the plain URL.
+  }
+  return resolvers
+}
 
 /** Resolve packages relative to this bundle, not the Host's working directory. */
-const requireFromModule = createRequire(import.meta.url)
+const dependencyRequires = dependencyResolvers()
 
 /** Harness home used to find the bundled Node runtime. */
 export function dshHome() {
@@ -81,14 +113,54 @@ export function entryCandidates() {
   if (typeof configured === 'string' && configured.trim() !== '') {
     candidates.push({ entry: configured.trim(), source: 'env' })
   }
+  const seen = new Set()
   for (const specifier of ['mineru-mcp', 'mineru-mcp/dist/index.js']) {
-    try {
-      candidates.push({ entry: requireFromModule.resolve(specifier), source: 'dependency' })
-    } catch {
-      // Not installed as a dependency in this deployment.
+    for (const resolver of dependencyRequires) {
+      let entry
+      try {
+        entry = resolver.resolve(specifier)
+      } catch {
+        // This resolver cannot see the dependency; try the next one.
+        continue
+      }
+      if (seen.has(entry)) continue
+      seen.add(entry)
+      candidates.push({ entry, source: 'dependency' })
+      break
+    }
+  }
+  // The copy sitting beside the resolved package, when resolution found nothing.
+  if (candidates.length === 0) {
+    for (const guess of siblingEntryGuesses()) {
+      if (existsSync(guess)) candidates.push({ entry: guess, source: 'sibling' })
     }
   }
   return candidates
+}
+
+/**
+ * Conventional dependency layouts next to this bundle, as a last resort.
+ *
+ * A Host that loads the bundle from a location where neither the junction nor
+ * the real path resolves (for example a copied artifact tree) still has the
+ * dependency next to it in one of these shapes.
+ *
+ * @returns candidate `mineru-mcp` entry files, most likely first.
+ */
+function siblingEntryGuesses() {
+  const roots = []
+  try {
+    roots.push(dirname(fileURLToPath(import.meta.url)))
+  } catch {
+    // Without a file URL there is nothing to stand beside.
+  }
+  const guesses = []
+  for (const root of roots) {
+    guesses.push(join(root, 'node_modules', 'mineru-mcp', 'dist', 'index.js'))
+    guesses.push(join(root, '..', 'mineru-mcp', 'dist', 'index.js'))
+    guesses.push(join(root, '..', '..', 'mineru-mcp', 'dist', 'index.js'))
+  }
+  return guesses
 }
 
 /** Probe the machine for a usable Node and mineru-mcp pair. */
