@@ -27,35 +27,13 @@ MinerU 文档解析插件（DeepSeek Harness bundle）。把 `mineru-mcp` 通过
 
 ## 安装
 
-在本仓库的 Releases 页面下载 `dsh-mineru-0.3.1.tgz` 后，在 DSH 插件页选择
-**从文件安装**，或把 tarball 的绝对路径交给 `plugin_manager`：
+在 DSH 插件页的安装输入框里填地址，一键装好：
 
 ```
-plugin_manager { action: "install_bundle", target: "C:\\path\\to\\dsh-mineru-0.3.1.tgz" }
+github:unison777/dsh-mineru
 ```
 
-也可以直接从 GitHub 安装（跟踪 `main` 分支，或锁定某个 tag）：
-
-```
-plugin_manager { action: "install_bundle", target: "github:unison777/dsh-mineru" }
-plugin_manager { action: "install_bundle", target: "github:unison777/dsh-mineru#v0.3.1" }
-```
-
-开发时可以直接指向本地仓库目录（软链接安装，改完即生效）：
-
-```
-plugin_manager { action: "install_bundle", target: "<本地仓库绝对路径>" }
-```
-
-本地目录安装是软链接（junction）。改完 Host 代码后，触发一次 profile 重组合
-（例如在插件页把本插件关掉再打开）即可热替换；Browser 半由 client-modules 按文件
-签名自动刷新，必要时刷新页面。
-
-> **装不上时先看网络**：`install_bundle` 在跑 pnpm 之前会先做一次 `git ls-remote`
-> 探测仓库（默认 5 秒超时）。如果本机把 `github.com` 指到了 `127.0.0.1`
-> （例如 Steam++ 之类加速工具的 hosts 段），这一步会一直挂住或报
-> `failedAt: "spec-host"`。先放行 GitHub，或改用下面的 tarball 安装——tarball
-> 不访问 GitHub。
+想锁定版本就在后面加 tag，例如 `github:unison777/dsh-mineru#v0.3.2`；不加则跟踪 `main`。
 
 装完确认：
 
@@ -65,6 +43,11 @@ plugin_manager { action: "install_bundle", target: "<本地仓库绝对路径>" 
 
 如果前两项都正常但「运行环境」显示未就绪、原因为 `no-entry`，说明插件没能定位
 `mineru-mcp`：在设置页点 **一键配置** 即可，或手动设 `MINERU_MCP_ENTRY`。
+
+> **装不上时先看网络**：`install_bundle` 在跑 pnpm 之前会先做一次 `git ls-remote`
+> 探测仓库（默认 5 秒超时）。如果本机把 `github.com` 指到了 `127.0.0.1`
+> （例如 Steam++ 之类加速工具的 hosts 段），这一步会一直挂住或报
+> `failedAt: "spec-host"`。先放行 GitHub 再装。
 
 ## 结构
 
@@ -105,7 +88,10 @@ plugin_manager { action: "install_bundle", target: "<本地仓库绝对路径>" 
   4. PATH 里的 `node`。
 - `mineru-mcp` 入口按以下顺序探测：
   1. `MINERU_MCP_ENTRY`；
-  2. 本包依赖 `mineru-mcp`（`createRequire(import.meta.url).resolve`）。
+  2. 本包依赖 `mineru-mcp`：先按 `import.meta.url` 解析，再按
+     `realpathSync.native` 得到的真实路径解析（pnpm 的 junction 只有后者能看到
+     `.pnpm/<id>/node_modules`）。
+  3. 仍未找到时，退回到包旁边常见的依赖布局。
 - 只有当前行仍是可移植默认值（`command: node`、`args: ['']`）时，激活后才会自动写入；
   用户自定义过的路径不会被覆盖。自动探测失败时，设置页给「一键配置」按钮和失败原因。
 - 自动/一键配置会把 `mcp-mineru` 行整体写入 profile 覆盖（包括执行时的环境变量值）；

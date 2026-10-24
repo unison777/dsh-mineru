@@ -1,6 +1,6 @@
 {
   "name": "@unison777/dsh-mineru",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "MinerU 文档解析：自动探测 Node 与 mineru-mcp，设置页只需填 API Key。",
   "icon": "./icon.svg",
   "type": "module",
